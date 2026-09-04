@@ -22,57 +22,73 @@ export default function App() {
   const [generating, setGenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
-  // 최신 회차 당첨 번호 불러오기 (API 호출 실패 시 정적 번들 데이터로 fallback)
+  // 환경별 데이터 URL 도우미
+  const getStaticDataUrl = (fileName) => {
+    const base = import.meta.env.BASE_URL || '/';
+    const cleanBase = base.endsWith('/') ? base : `${base}/`;
+    return `${cleanBase}data/${fileName}`;
+  };
+
+  // 최신 회차 당첨 번호 불러오기
   const fetchLatest = async () => {
     setLoadingLatest(true);
-    try {
-      const res = await fetch('/api/lotto/latest');
-      if (!res.ok) throw new Error('API 응답 없음');
-      const data = await res.json();
-      setLatestDraw(data);
-    } catch (err) {
-      console.warn('API 호출 불가, 정적 최신 데이터로 전환:', err.message);
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    if (isLocal) {
       try {
-        const baseUrl = import.meta.env.BASE_URL || './';
-        const fallbackRes = await fetch(`${baseUrl}data/latest.json`);
-        if (fallbackRes.ok) {
-          const fallbackData = await fallbackRes.json();
-          setLatestDraw(fallbackData);
+        const res = await fetch('/api/lotto/latest');
+        if (res.ok) {
+          const data = await res.json();
+          setLatestDraw(data);
+          return;
         }
-      } catch (fallbackErr) {
-        console.error('Failed to load fallback latest draw:', fallbackErr);
+      } catch (e) {}
+    }
+
+    // GitHub Pages 또는 API 실패 시 정적 번들 데이터 로드
+    try {
+      const fallbackRes = await fetch(getStaticDataUrl('latest.json'));
+      if (fallbackRes.ok) {
+        const fallbackData = await fallbackRes.json();
+        setLatestDraw(fallbackData);
       }
+    } catch (fallbackErr) {
+      console.error('최신 회차 로드 실패:', fallbackErr);
     } finally {
       setLoadingLatest(false);
     }
   };
 
-  // 최근 회차 통계 데이터 불러오기 (API 호출 실패 시 정적 번들 데이터로 fallback)
+  // 최근 회차 통계 데이터 불러오기
   const fetchStats = useCallback(async (count) => {
     setLoadingStats(true);
-    try {
-      const res = await fetch(`/api/lotto/stats?count=${count}`);
-      if (!res.ok) throw new Error('API 응답 없음');
-      const data = await res.json();
-      setStats(data);
-      return data;
-    } catch (err) {
-      console.warn('API 호출 불가, 정적 통계 데이터로 전환:', err.message);
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    if (isLocal) {
       try {
-        const baseUrl = import.meta.env.BASE_URL || './';
-        const fallbackRes = await fetch(`${baseUrl}data/stats-${count}.json`);
-        if (fallbackRes.ok) {
-          const fallbackData = await fallbackRes.json();
-          setStats(fallbackData);
-          return fallbackData;
+        const res = await fetch(`/api/lotto/stats?count=${count}`);
+        if (res.ok) {
+          const data = await res.json();
+          setStats(data);
+          return data;
         }
-      } catch (fallbackErr) {
-        console.error('Failed to load fallback stats:', fallbackErr);
+      } catch (e) {}
+    }
+
+    // GitHub Pages 또는 API 실패 시 정적 번들 데이터 로드
+    try {
+      const fallbackRes = await fetch(getStaticDataUrl(`stats-${count}.json`));
+      if (fallbackRes.ok) {
+        const fallbackData = await fallbackRes.json();
+        setStats(fallbackData);
+        return fallbackData;
       }
-      return null;
+    } catch (fallbackErr) {
+      console.error('통계 로드 실패:', fallbackErr);
     } finally {
       setLoadingStats(false);
     }
+    return null;
   }, []);
 
   // 5게임 자동 생성 핸들러
