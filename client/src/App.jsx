@@ -6,9 +6,21 @@ import GameResults from './components/GameResults';
 import StatsView from './components/StatsView';
 import { generateFiveGames } from './utils/lottoGenerator';
 
+// 번들된 기본 당첨 및 통계 데이터 (GitHub Pages 및 오프라인 환경 즉시 렌더링 지원)
+import defaultLatest from './data/latest.json';
+import defaultStats20 from './data/stats-20.json';
+import defaultStats30 from './data/stats-30.json';
+import defaultStats50 from './data/stats-50.json';
+
+const BUNDLED_STATS = {
+  20: defaultStats20,
+  30: defaultStats30,
+  50: defaultStats50
+};
+
 export default function App() {
-  const [latestDraw, setLatestDraw] = useState(null);
-  const [stats, setStats] = useState(null);
+  const [latestDraw, setLatestDraw] = useState(defaultLatest);
+  const [stats, setStats] = useState(defaultStats30);
   const [loadingLatest, setLoadingLatest] = useState(false);
   const [loadingStats, setLoadingStats] = useState(false);
   const [statsCount, setStatsCount] = useState(30); // 20, 30, 50
@@ -17,17 +29,10 @@ export default function App() {
   const [fixedNumbers, setFixedNumbers] = useState([]);
   const [excludedNumbers, setExcludedNumbers] = useState([]);
 
-  // 생성된 5게임 조합
-  const [games, setGames] = useState([]);
+  // 생성된 5게임 조합 (초기 로딩 시 기본 30회 통계 기반 5게임 자동 생성)
+  const [games, setGames] = useState(() => generateFiveGames(defaultStats30.frequency, [], []));
   const [generating, setGenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
-
-  // 환경별 데이터 URL 도우미
-  const getStaticDataUrl = (fileName) => {
-    const base = import.meta.env.BASE_URL || '/';
-    const cleanBase = base.endsWith('/') ? base : `${base}/`;
-    return `${cleanBase}data/${fileName}`;
-  };
 
   // 최신 회차 당첨 번호 불러오기
   const fetchLatest = async () => {
@@ -45,18 +50,9 @@ export default function App() {
       } catch (e) {}
     }
 
-    // GitHub Pages 또는 API 실패 시 정적 번들 데이터 로드
-    try {
-      const fallbackRes = await fetch(getStaticDataUrl('latest.json'));
-      if (fallbackRes.ok) {
-        const fallbackData = await fallbackRes.json();
-        setLatestDraw(fallbackData);
-      }
-    } catch (fallbackErr) {
-      console.error('최신 회차 로드 실패:', fallbackErr);
-    } finally {
-      setLoadingLatest(false);
-    }
+    // 기본 번들 데이터 사용
+    setLatestDraw(defaultLatest);
+    setLoadingLatest(false);
   };
 
   // 최근 회차 통계 데이터 불러오기
@@ -75,20 +71,11 @@ export default function App() {
       } catch (e) {}
     }
 
-    // GitHub Pages 또는 API 실패 시 정적 번들 데이터 로드
-    try {
-      const fallbackRes = await fetch(getStaticDataUrl(`stats-${count}.json`));
-      if (fallbackRes.ok) {
-        const fallbackData = await fallbackRes.json();
-        setStats(fallbackData);
-        return fallbackData;
-      }
-    } catch (fallbackErr) {
-      console.error('통계 로드 실패:', fallbackErr);
-    } finally {
-      setLoadingStats(false);
-    }
-    return null;
+    // 기본 번들 데이터 사용
+    const fallbackData = BUNDLED_STATS[count] || defaultStats30;
+    setStats(fallbackData);
+    setLoadingStats(false);
+    return fallbackData;
   }, []);
 
   // 5게임 자동 생성 핸들러
