@@ -22,32 +22,53 @@ export default function App() {
   const [generating, setGenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 
-  // 최신 회차 당첨 번호 불러오기
+  // 최신 회차 당첨 번호 불러오기 (API 호출 실패 시 정적 번들 데이터로 fallback)
   const fetchLatest = async () => {
     setLoadingLatest(true);
     try {
       const res = await fetch('/api/lotto/latest');
-      if (!res.ok) throw new Error('최신 회차 정보를 가져올 수 없습니다.');
+      if (!res.ok) throw new Error('API 응답 없음');
       const data = await res.json();
       setLatestDraw(data);
     } catch (err) {
-      console.error('Failed to load latest draw:', err);
+      console.warn('API 호출 불가, 정적 최신 데이터로 전환:', err.message);
+      try {
+        const baseUrl = import.meta.env.BASE_URL || './';
+        const fallbackRes = await fetch(`${baseUrl}data/latest.json`);
+        if (fallbackRes.ok) {
+          const fallbackData = await fallbackRes.json();
+          setLatestDraw(fallbackData);
+        }
+      } catch (fallbackErr) {
+        console.error('Failed to load fallback latest draw:', fallbackErr);
+      }
     } finally {
       setLoadingLatest(false);
     }
   };
 
-  // 최근 회차 통계 데이터 불러오기
+  // 최근 회차 통계 데이터 불러오기 (API 호출 실패 시 정적 번들 데이터로 fallback)
   const fetchStats = useCallback(async (count) => {
     setLoadingStats(true);
     try {
       const res = await fetch(`/api/lotto/stats?count=${count}`);
-      if (!res.ok) throw new Error('통계 데이터를 가져올 수 없습니다.');
+      if (!res.ok) throw new Error('API 응답 없음');
       const data = await res.json();
       setStats(data);
       return data;
     } catch (err) {
-      console.error('Failed to load stats:', err);
+      console.warn('API 호출 불가, 정적 통계 데이터로 전환:', err.message);
+      try {
+        const baseUrl = import.meta.env.BASE_URL || './';
+        const fallbackRes = await fetch(`${baseUrl}data/stats-${count}.json`);
+        if (fallbackRes.ok) {
+          const fallbackData = await fallbackRes.json();
+          setStats(fallbackData);
+          return fallbackData;
+        }
+      } catch (fallbackErr) {
+        console.error('Failed to load fallback stats:', fallbackErr);
+      }
       return null;
     } finally {
       setLoadingStats(false);
